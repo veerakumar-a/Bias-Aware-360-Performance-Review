@@ -30,6 +30,9 @@ jobs:
         working-directory: frontend
         run: npm install
 
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
       - name: Build frontend
         working-directory: frontend
         env:
