@@ -1,30 +1,27 @@
 # Bias-Aware 360° Performance Review Intelligence System
 
-## 1. System Architecture
+[![Python](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)](https://vite.dev/)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
-This solution applies a multi-agent workflow to produce a grounded, bias-aware performance review using retrieval-augmented synthesis and a human approval gate.
+## Overview
 
-### Recommended orchestration pattern
+This project delivers a bias-aware 360° performance review assistant with:
 
-Use a LangGraph-style state machine with four specialized agents:
+- role-aware reviewer authentication
+- evidence-backed synthesis
+- bias flag detection
+- structured review output
+- JSON and PDF reporting
+- a polished React dashboard
 
-1. Feedback Collection Agent
-   - Ingests self-assessment, manager feedback, peer feedback, goals, project outcomes, and meeting notes.
-   - Normalizes heterogeneous sources into a review evidence graph.
+## Architecture
 
-2. Evidence Retrieval Agent
-   - Retrieves the most relevant source fragments for each evaluation claim.
-   - Uses semantic retrieval over a vector store and metadata filters, such as role, date, project, and review cycle.
+The backend is a FastAPI service that orchestrates the review workflow, while the frontend is a Vite + React dashboard that provides reviewer controls and exports.
 
-3. Synthesis + Bias Detection Agent
-   - Builds structured findings from evidence.
-   - Flags recency effects, unsupported claims, stakeholder imbalance, confirmation bias, halo effect, and missing evidence.
-
-4. Report Generation Agent
-   - Converts the approved evidence-backed synthesis into a structured performance report.
-   - Produces strengths, growth areas, impact highlights, goal progress, and action recommendations.
-
-### End-to-end flow
+### Core flow
 
 ```mermaid
 flowchart LR
@@ -32,58 +29,74 @@ flowchart LR
     B --> C[Evidence Retrieval Agent]
     C --> D[Synthesis + Bias Detection Agent]
     D --> E[Report Generation Agent]
-    E --> F[Human Reviewer Approval]
+    E --> F[Reviewer Approval]
     F --> G[Final Review Report]
 ```
 
-### Data flow summary
+## Features
 
-- Raw input is normalized and de-identified to a secure review payload.
-- The Evidence Retrieval Agent retrieves supporting snippets with source IDs.
-- The Synthesis + Bias Detection Agent produces a structured finding set and bias flags.
-- The Report Generation Agent writes the final report only if evidence grounding and approval criteria are satisfied.
+- Reviewer login with demo roles
+- Backend review generation endpoint
+- JSON export and PDF generation
+- Bias and evidence visibility in the dashboard
+- CORS-ready integration for a frontend deployment
 
-## 2. Data Schema
+## Local setup
 
-The Python models are defined in [app/models.py](app/models.py).
+### 1. Create and activate the Python environment
 
-Key entities:
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
 
-- FeedbackSource
-- FeedbackRecord
-- ReviewInput
-- BiasFlag
-- EvidenceCitation
-- ReviewFinding
-- PerformanceReviewReport
+### 2. Start the backend
 
-## 3. Python Boilerplate
+```powershell
+.venv\Scripts\python.exe -m uvicorn app.website:app --host 127.0.0.1 --port 8000
+```
 
-The implementation starter is organized as:
+### 3. Start the frontend
 
-- [app/models.py](app/models.py): Pydantic schemas
-- [app/agents.py](app/agents.py): Agent logic and orchestration
-- [app/main.py](app/main.py): Example entry point
+```powershell
+cd frontend
+npm install
+npm run dev -- --host 127.0.0.1 --port 5174
+```
 
-## 4. Governance Strategy
+### 4. Open the app
 
-### Privacy and security controls
+- Backend: http://127.0.0.1:8000
+- Frontend: http://127.0.0.1:5174
 
-- Encrypt data at rest and in transit.
-- Role-based access control with least privilege.
-- Data minimization: retain only the fields needed for review.
-- Pseudonymize employee identifiers before retrieval and analysis.
-- Apply policy and tagging rules to restrict access by HR, manager, and employee role.
+## Demo credentials
 
-### Auditability
+- `hr` / `hr123`
+- `manager` / `mgr123`
+- `reviewer` / `rev123`
 
-- Log every input, evidence retrieval, bias flag, and human decision.
-- Store immutable approval decisions with reviewer identity and timestamp.
-- Keep a source traceability index to map every conclusion back to a source record.
+## GitHub Pages deployment
 
-### Recommended governance baseline
+The frontend is prepared for a GitHub Pages static deployment.
 
-- DPA and retention policy for employee data
-- Consent and purpose limitation controls
-- Bias review and equity monitoring of the system itself
-- Quarterly red-team testing on bias and privacy failures
+### Deployment workflow
+
+A GitHub Actions workflow is included in [.github/workflows/deploy-pages.yml](.github/workflows/deploy-pages.yml) to publish the static Vite build to GitHub Pages automatically on pushes to `master`.
+
+### Required repository setting
+
+1. Open the repository on GitHub.
+2. Go to Settings → Pages.
+3. Set the source to `GitHub Actions`.
+
+### Backend hosting note
+
+GitHub Pages only hosts the static frontend. The FastAPI backend still needs a separate runtime such as Render, Railway, Fly.io, or Azure App Service.
+
+## Production next steps
+
+- replace the in-memory retrieval layer with FAISS or pgvector
+- add persistent session storage and a real auth provider
+- move the backend to a managed hosting platform
+- add release notes and CI checks for lint/build/test automation

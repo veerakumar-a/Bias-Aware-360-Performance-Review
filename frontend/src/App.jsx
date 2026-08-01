@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import './App.css'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+
 const DEFAULT_PAYLOAD = {
   employee_id: 'EMP-001',
   review_cycle: '2026-Q3',
@@ -35,7 +37,7 @@ function App() {
   )
 
   async function login() {
-    const response = await fetch('http://127.0.0.1:8000/auth', {
+    const response = await fetch(`${API_BASE_URL}/auth`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -49,7 +51,7 @@ function App() {
   }
 
   async function generateReview() {
-    const response = await fetch('http://127.0.0.1:8000/review', {
+    const response = await fetch(`${API_BASE_URL}/review`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -76,7 +78,7 @@ function App() {
 
   async function exportPdf() {
     if (!report) return
-    const response = await fetch('http://127.0.0.1:8000/export/pdf', {
+    const response = await fetch(`${API_BASE_URL}/export/pdf`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
