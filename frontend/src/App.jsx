@@ -26,6 +26,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('strengths')
   const [authState, setAuthState] = useState({ role: 'reviewer', signedIn: false })
   const [loginForm, setLoginForm] = useState({ username: 'hr', password: 'hr123' })
+  const [message, setMessage] = useState('Ready to generate a grounded 360° review.')
 
   const tabLabels = useMemo(
     () => ({
@@ -36,33 +37,55 @@ function App() {
     [],
   )
 
+  const metrics = useMemo(() => {
+    const evidenceCount = report?.evidence?.length || 0
+    const biasCount = report?.bias_flags?.length || 0
+    return [
+      { label: 'Evidence', value: evidenceCount },
+      { label: 'Bias Flags', value: biasCount },
+      { label: 'Role', value: authState.role },
+    ]
+  }, [authState.role, report])
+
   async function login() {
-    const response = await fetch(`${API_BASE_URL}/auth`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(loginForm),
-    })
-    const payload = await response.json()
-    setAuthState({ role: payload.role, signedIn: payload.ok })
-    if (payload.ok) {
-      setFormState((current) => ({ ...current, reviewer_role: payload.role }))
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(loginForm),
+      })
+      const payload = await response.json()
+      setAuthState({ role: payload.role, signedIn: payload.ok })
+      if (payload.ok) {
+        setFormState((current) => ({ ...current, reviewer_role: payload.role }))
+        setMessage(`Reviewer session established for ${payload.role}.`)
+      } else {
+        setMessage('Authentication failed. Please try a demo reviewer account.')
+      }
+    } catch (error) {
+      setMessage('Login could not reach the backend service.')
     }
   }
 
   async function generateReview() {
-    const response = await fetch(`${API_BASE_URL}/review`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(formState),
-    })
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}))
-      throw new Error(error.detail || 'Review generation failed')
+    try {
+      const response = await fetch(`${API_BASE_URL}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(formState),
+      })
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        throw new Error(error.detail || 'Review generation failed')
+      }
+      const data = await response.json()
+      setReport(data)
+      setMessage(`Report status: ${data.status} | Evidence: ${data.evidence?.length || 0} | Bias flags: ${data.bias_flags?.length || 0}`)
+    } catch (error) {
+      setMessage(error.message || 'Review generation failed.')
     }
-    const data = await response.json()
-    setReport(data)
   }
 
   function exportJson() {
@@ -78,23 +101,28 @@ function App() {
 
   async function exportPdf() {
     if (!report) return
-    const response = await fetch(`${API_BASE_URL}/export/pdf`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(report),
-    })
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}))
-      throw new Error(error.detail || 'PDF export failed')
+    try {
+      const response = await fetch(`${API_BASE_URL}/export/pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(report),
+      })
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        throw new Error(error.detail || 'PDF export failed')
+      }
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = 'review-report.pdf'
+      anchor.click()
+      URL.revokeObjectURL(url)
+      setMessage('PDF export generated successfully.')
+    } catch (error) {
+      setMessage(error.message || 'PDF export failed.')
     }
-    const blob = await response.blob()
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = 'review-report.pdf'
-    anchor.click()
-    URL.revokeObjectURL(url)
   }
 
   function renderTabContent() {
@@ -107,15 +135,26 @@ function App() {
   return (
     <div className="shell">
       <section className="hero">
-        <h1>Bias-Aware 360° Performance Review</h1>
-        <p>Role-aware reviewer dashboard with evidence grounded synthesis and export controls.</p>
+        <div className="hero-copy">
+          <span className="eyebrow">Bias-Aware Review Intelligence</span>
+          <h1>360° Performance Review</h1>
+          <p>Role-aware reviewer workspace with grounded evidence, bias visibility, and polished export actions.</p>
+        </div>
+        <div className="metric-row">
+          {metrics.map((metric) => (
+            <div key={metric.label} className="metric-card">
+              <span>{metric.label}</span>
+              <strong>{metric.value}</strong>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="dashboard">
-        <aside className="panel sidebar">
-          <div className="section-title">Reviewer Dashboard</div>
+        <aside className="panel sidebar glass">
+          <div className="section-title">Reviewer Control Center</div>
 
-          <div className="card-box">
+          <div className="card-box glass-card">
             <strong>Login</strong>
             <p className="muted">hr/hr123 • manager/mgr123 • reviewer/rev123</p>
             <input
@@ -129,11 +168,11 @@ function App() {
               onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value })}
               placeholder="Password"
             />
-            <button type="button" onClick={login}>Login</button>
+            <button type="button" onClick={login}>Sign in</button>
             <div className="role-chip">{authState.signedIn ? `Signed in as ${authState.role}` : 'Not signed in'}</div>
           </div>
 
-          <div className="card-box">
+          <div className="card-box glass-card">
             <strong>View Mode</strong>
             {Object.entries(tabLabels).map(([key, label]) => (
               <button
@@ -147,15 +186,15 @@ function App() {
             ))}
           </div>
 
-          <div className="card-box">
+          <div className="card-box glass-card">
             <strong>Exports</strong>
             <button type="button" onClick={exportJson}>Export JSON</button>
             <button type="button" onClick={exportPdf}>Export PDF</button>
           </div>
         </aside>
 
-        <main className="panel main-panel">
-          <div className="section-title">Review Inputs</div>
+        <main className="panel main-panel glass">
+          <div className="section-title">Review Input Workspace</div>
           <div className="grid">
             <label>
               Employee ID
@@ -202,10 +241,12 @@ function App() {
             </label>
           </div>
 
-          <button type="button" onClick={generateReview}>Generate Review</button>
+          <div className="action-row">
+            <button type="button" onClick={generateReview}>Generate Review</button>
+          </div>
 
-          <div className="section-title">Review Output</div>
-          <div className="summary-box">{report ? `Report status: ${report.status}` : 'Ready to generate a grounded 360° review.'}</div>
+          <div className="section-title">Review Snapshot</div>
+          <div className="summary-box">{message}</div>
           <pre className="result-card">{renderTabContent()}</pre>
         </main>
       </section>
