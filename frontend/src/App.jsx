@@ -1,255 +1,163 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import './App.css'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+const featureCards = [
+  {
+    title: 'Grounded evidence synthesis',
+    description: 'Combines self-assessment, manager notes, peer feedback, and project outcomes into a single review narrative with traceable evidence.',
+  },
+  {
+    title: 'Bias visibility',
+    description: 'Flags potentially skewed review language and highlights where fairness-sensitive wording should be reviewed before final approval.',
+  },
+  {
+    title: 'Role-aware workflow',
+    description: 'Supports HR, manager, and reviewer roles with a clear approval path and export-ready review summaries.',
+  },
+]
 
-const DEFAULT_PAYLOAD = {
-  employee_id: 'EMP-001',
-  review_cycle: '2026-Q3',
-  self_assessment: 'Delivered a high-impact AI workflow and improved cross-functional handoffs.',
-  manager_feedback: 'Strong ownership and measurable impact. Needs clearer follow-through on documentation.',
-  peer_feedback: [
-    'Collaborative and dependable during project execution.',
-    'Helpful in aligning engineering and product teams.',
-  ],
-  goals: ['Improve reliability of retrieval pipelines', 'Expand mentoring support'],
-  project_outcomes: ['Improved operational efficiency by 18%.', 'Reduced incident response time.'],
-  meeting_notes: ['Weekly review noted strong delivery quality and communication.'],
-  reviewer_name: 'HR_Review_Manager',
-  reviewer_role: 'hr',
-  approval_decision: 'approve',
-}
+const workflowSteps = [
+  'Collect structured review inputs across 360° sources.',
+  'Retrieve evidence and evaluate claims for fairness and alignment.',
+  'Generate strengths, bias flags, and an evidence-backed report.',
+  'Export the output as JSON or PDF for reviewer sign-off.',
+]
+
+const techBadges = ['Python', 'FastAPI', 'React', 'Vite', 'Pydantic', 'ReportLab', 'FAISS', 'GitHub Actions']
+
+const installSnippet = `pip install -r requirements.txt
+python -m uvicorn app.website:app --reload`
 
 function App() {
-  const [formState, setFormState] = useState(DEFAULT_PAYLOAD)
-  const [report, setReport] = useState(null)
-  const [activeTab, setActiveTab] = useState('strengths')
-  const [authState, setAuthState] = useState({ role: 'reviewer', signedIn: false })
-  const [loginForm, setLoginForm] = useState({ username: 'hr', password: 'hr123' })
-  const [message, setMessage] = useState('Ready to generate a grounded 360° review.')
+  const [copied, setCopied] = useState(false)
 
-  const tabLabels = useMemo(
-    () => ({
-      strengths: 'Strengths',
-      bias: 'Bias Flags',
-      evidence: 'Evidence',
-    }),
-    [],
-  )
-
-  const metrics = useMemo(() => {
-    const evidenceCount = report?.evidence?.length || 0
-    const biasCount = report?.bias_flags?.length || 0
-    return [
-      { label: 'Evidence', value: evidenceCount },
-      { label: 'Bias Flags', value: biasCount },
-      { label: 'Role', value: authState.role },
-    ]
-  }, [authState.role, report])
-
-  async function login() {
+  async function copySnippet() {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(loginForm),
-      })
-      const payload = await response.json()
-      setAuthState({ role: payload.role, signedIn: payload.ok })
-      if (payload.ok) {
-        setFormState((current) => ({ ...current, reviewer_role: payload.role }))
-        setMessage(`Reviewer session established for ${payload.role}.`)
-      } else {
-        setMessage('Authentication failed. Please try a demo reviewer account.')
-      }
-    } catch (error) {
-      setMessage('Login could not reach the backend service.')
+      await navigator.clipboard.writeText(installSnippet)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    } catch {
+      setCopied(false)
     }
-  }
-
-  async function generateReview() {
-    try {
-      const response = await fetch(`${API_BASE_URL}/review`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(formState),
-      })
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}))
-        throw new Error(error.detail || 'Review generation failed')
-      }
-      const data = await response.json()
-      setReport(data)
-      setMessage(`Report status: ${data.status} | Evidence: ${data.evidence?.length || 0} | Bias flags: ${data.bias_flags?.length || 0}`)
-    } catch (error) {
-      setMessage(error.message || 'Review generation failed.')
-    }
-  }
-
-  function exportJson() {
-    if (!report) return
-    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = 'review-report.json'
-    anchor.click()
-    URL.revokeObjectURL(url)
-  }
-
-  async function exportPdf() {
-    if (!report) return
-    try {
-      const response = await fetch(`${API_BASE_URL}/export/pdf`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(report),
-      })
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}))
-        throw new Error(error.detail || 'PDF export failed')
-      }
-      const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
-      const anchor = document.createElement('a')
-      anchor.href = url
-      anchor.download = 'review-report.pdf'
-      anchor.click()
-      URL.revokeObjectURL(url)
-      setMessage('PDF export generated successfully.')
-    } catch (error) {
-      setMessage(error.message || 'PDF export failed.')
-    }
-  }
-
-  function renderTabContent() {
-    if (!report) return 'Generate a review to view Strengths, Bias Flags, or Evidence.'
-    if (activeTab === 'strengths') return JSON.stringify(report.strengths, null, 2)
-    if (activeTab === 'bias') return JSON.stringify(report.bias_flags, null, 2)
-    return JSON.stringify(report.evidence, null, 2)
   }
 
   return (
-    <div className="shell">
-      <section className="hero">
-        <div className="hero-copy">
-          <span className="eyebrow">Bias-Aware Review Intelligence</span>
-          <h1>360° Performance Review</h1>
-          <p>Role-aware reviewer workspace with grounded evidence, bias visibility, and polished export actions.</p>
-        </div>
-        <div className="metric-row">
-          {metrics.map((metric) => (
-            <div key={metric.label} className="metric-card">
-              <span>{metric.label}</span>
-              <strong>{metric.value}</strong>
+    <div className="landing-shell">
+      <header className="topbar">
+        <div className="brand">Bias-Aware 360</div>
+        <nav className="nav-links" aria-label="Primary navigation">
+          <a href="#overview">Overview</a>
+          <a href="#features">Features</a>
+          <a href="#architecture">How it works</a>
+          <a href="#stack">Tech stack</a>
+          <a href="#get-started">Get started</a>
+        </nav>
+      </header>
+
+      <main>
+        <section id="overview" className="hero-card">
+          <div className="hero-copy">
+            <span className="eyebrow">Bias-aware performance review intelligence</span>
+            <h1>Bias-Aware 360 Performance Review</h1>
+            <p>
+              A grounded review intelligence system that turns self-assessment, manager feedback,
+              peer input, and evidence into a fair, role-aware performance narrative.
+            </p>
+            <div className="hero-actions">
+              <a className="primary-btn" href="#get-started">Get started</a>
+              <a className="secondary-btn" href="https://github.com/veerakumar-a/Bias-Aware-360-Performance-Review" target="_blank" rel="noreferrer">View repo</a>
             </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="dashboard">
-        <aside className="panel sidebar glass">
-          <div className="section-title">Reviewer Control Center</div>
-
-          <div className="card-box glass-card">
-            <strong>Login</strong>
-            <p className="muted">hr/hr123 • manager/mgr123 • reviewer/rev123</p>
-            <input
-              value={loginForm.username}
-              onChange={(event) => setLoginForm({ ...loginForm, username: event.target.value })}
-              placeholder="Username"
-            />
-            <input
-              type="password"
-              value={loginForm.password}
-              onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value })}
-              placeholder="Password"
-            />
-            <button type="button" onClick={login}>Sign in</button>
-            <div className="role-chip">{authState.signedIn ? `Signed in as ${authState.role}` : 'Not signed in'}</div>
           </div>
 
-          <div className="card-box glass-card">
-            <strong>View Mode</strong>
-            {Object.entries(tabLabels).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                className={`tab-button ${activeTab === key ? 'active' : ''}`}
-                onClick={() => setActiveTab(key)}
-              >
-                {label}
-              </button>
+          <div className="hero-panel">
+            <div className="status-card">
+              <span className="status-label">Review readiness</span>
+              <strong>Grounded • Fair • Exportable</strong>
+            </div>
+            <div className="mini-grid">
+              <div>
+                <span>Evidence points</span>
+                <strong>360°</strong>
+              </div>
+              <div>
+                <span>Bias review</span>
+                <strong>Active</strong>
+              </div>
+              <div>
+                <span>Export formats</span>
+                <strong>JSON · PDF</strong>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="features" className="content-section">
+          <div className="section-heading">
+            <span className="section-kicker">Key capabilities</span>
+            <h2>Designed for reviewer confidence</h2>
+          </div>
+          <div className="card-grid">
+            {featureCards.map((card) => (
+              <article key={card.title} className="info-card">
+                <h3>{card.title}</h3>
+                <p>{card.description}</p>
+              </article>
             ))}
           </div>
+        </section>
 
-          <div className="card-box glass-card">
-            <strong>Exports</strong>
-            <button type="button" onClick={exportJson}>Export JSON</button>
-            <button type="button" onClick={exportPdf}>Export PDF</button>
+        <section id="architecture" className="content-section">
+          <div className="section-heading">
+            <span className="section-kicker">How it works</span>
+            <h2>From raw review signals to a usable report</h2>
           </div>
-        </aside>
-
-        <main className="panel main-panel glass">
-          <div className="section-title">Review Input Workspace</div>
-          <div className="grid">
-            <label>
-              Employee ID
-              <input value={formState.employee_id} onChange={(e) => setFormState({ ...formState, employee_id: e.target.value })} />
-            </label>
-            <label>
-              Review Cycle
-              <input value={formState.review_cycle} onChange={(e) => setFormState({ ...formState, review_cycle: e.target.value })} />
-            </label>
-            <label className="full">
-              Self Assessment
-              <textarea value={formState.self_assessment} onChange={(e) => setFormState({ ...formState, self_assessment: e.target.value })} />
-            </label>
-            <label className="full">
-              Manager Feedback
-              <textarea value={formState.manager_feedback} onChange={(e) => setFormState({ ...formState, manager_feedback: e.target.value })} />
-            </label>
-            <label className="full">
-              Peer Feedback
-              <textarea value={formState.peer_feedback.join('\n')} onChange={(e) => setFormState({ ...formState, peer_feedback: e.target.value.split(/\n+/).filter(Boolean) })} />
-            </label>
-            <label className="full">
-              Goals
-              <textarea value={formState.goals.join('\n')} onChange={(e) => setFormState({ ...formState, goals: e.target.value.split(/\n+/).filter(Boolean) })} />
-            </label>
-            <label className="full">
-              Project Outcomes
-              <textarea value={formState.project_outcomes.join('\n')} onChange={(e) => setFormState({ ...formState, project_outcomes: e.target.value.split(/\n+/).filter(Boolean) })} />
-            </label>
-            <label className="full">
-              Meeting Notes
-              <textarea value={formState.meeting_notes.join('\n')} onChange={(e) => setFormState({ ...formState, meeting_notes: e.target.value.split(/\n+/).filter(Boolean) })} />
-            </label>
-            <label>
-              Reviewer Name
-              <input value={formState.reviewer_name} onChange={(e) => setFormState({ ...formState, reviewer_name: e.target.value })} />
-            </label>
-            <label>
-              Approval Decision
-              <select value={formState.approval_decision} onChange={(e) => setFormState({ ...formState, approval_decision: e.target.value })}>
-                <option value="approve">approve</option>
-                <option value="reject">reject</option>
-              </select>
-            </label>
+          <div className="timeline">
+            {workflowSteps.map((step, index) => (
+              <div key={step} className="timeline-item">
+                <span className="step-badge">0{index + 1}</span>
+                <p>{step}</p>
+              </div>
+            ))}
           </div>
+        </section>
 
-          <div className="action-row">
-            <button type="button" onClick={generateReview}>Generate Review</button>
+        <section id="stack" className="content-section">
+          <div className="section-heading">
+            <span className="section-kicker">Technology</span>
+            <h2>Built with a modern, deployable stack</h2>
           </div>
+          <div className="badge-row">
+            {techBadges.map((badge) => (
+              <span key={badge} className="badge">{badge}</span>
+            ))}
+          </div>
+        </section>
 
-          <div className="section-title">Review Snapshot</div>
-          <div className="summary-box">{message}</div>
-          <pre className="result-card">{renderTabContent()}</pre>
-        </main>
-      </section>
+        <section id="get-started" className="content-section">
+          <div className="section-heading">
+            <span className="section-kicker">Getting started</span>
+            <h2>Run locally in a few steps</h2>
+          </div>
+          <div className="snippet-card">
+            <div className="snippet-header">
+              <span>Install and launch</span>
+              <button type="button" onClick={copySnippet}>
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+            <pre>{installSnippet}</pre>
+          </div>
+        </section>
+      </main>
+
+      <footer className="footer">
+        <p>Bias-Aware 360 Performance Review</p>
+        <div className="footer-links">
+          <a href="https://github.com/veerakumar-a/Bias-Aware-360-Performance-Review" target="_blank" rel="noreferrer">GitHub Repo</a>
+          <span>•</span>
+          <span>MIT License</span>
+        </div>
+      </footer>
     </div>
   )
 }
